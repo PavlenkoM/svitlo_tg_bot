@@ -4,17 +4,25 @@ from typing import Optional
 from config import config
 from utils import styler, networkService
 from state import stateService
+from tgService import tgService
+
+# Import the telegram service (avoid circular import by importing when needed)
+_tg_service = None
 
 
 class SvitloService():
     def __init__(self):
         pass
 
+    def setTelegramService(self, tg_service):
+        """Set the telegram service for sending notifications"""
+        global _tg_service
+        _tg_service = tg_service
+
     async def checkStatus(self, ipAddress: str) -> bool:
         result = await networkService.ping(ipAddress)
 
-        self.updateSvitloState(result)
-        self.printElectricityState()
+        await self.updateSvitloState(isOn=result)
 
         return result
     
@@ -67,7 +75,8 @@ class SvitloService():
         except KeyboardInterrupt:
             print(f"\nStatus checking stopped by user at {datetime.now().strftime('%H:%M:%S')}")
 
-    def updateSvitloState(self, isOn: bool) -> None:
+
+    async def updateSvitloState(self, isOn: bool) -> None:
         currentState = stateService.getElectricityState()
         
         if currentState.isOn == isOn:
@@ -75,15 +84,31 @@ class SvitloService():
 
         styler.info(f"State change: electricity status from {currentState.isOn} to {isOn}")
         stateService.setElectricityState(isOn)
+        await self._sendTgNotification(isOn=isOn)
 
 
-    def printElectricityState(self) -> None:
+    def _printElectricityState(self) -> None:
         icon = stateService.getStatusIcon()
 
         if stateService.isElectricityOn():
             styler.success(icon + " Electricity is ON")
         else:
             styler.error(icon + " Electricity is OFF")
+
+
+    async def _sendTgNotification(self, isOn: bool) -> None:
+        """Send telegram notification about electricity state change"""
+        if not tgService:
+            return  # Telegram service not available
+
+        icon = "💡" if isOn else "🚫"
+        status = "ON" if isOn else "OFF"
+        message = f"{icon} Electricity status changed: {status} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+        try:
+            await tgService.sendCustomMessage(message)
+        except Exception as e:
+            styler.error(f"Failed to send telegram notification: {e}")
 
 
 svitloService = SvitloService()

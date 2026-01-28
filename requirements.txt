@@ -1,5 +1,6 @@
 # Core dependencies
 PyYAML>=6.0.0
+python-telegram-bot>=22.5
 
 # Add other dependencies as needed
 # python-telegram-bot>=20.0
