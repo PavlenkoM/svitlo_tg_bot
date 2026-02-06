@@ -1,0 +1,4 @@
+ip-address: 'ip.address.to.check' # Add IP address to check if it is active
+telegram-token: 'telegram_token' # Add your Telegram bot token here. You can get it from BotFather on Telegram.
+# timeinterval-to-check: 20 # Optional. Seconds. By default it is 30 seconds
+# number-of-packets: 4 # Optional. By default it is 4 packets
