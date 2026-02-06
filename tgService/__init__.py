@@ -1,3 +1,3 @@
-from .tgServicee import tgService
+from .tgService import tgService
 
 __all__ = ['tgService']

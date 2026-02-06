@@ -3,18 +3,17 @@ import asyncio
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from utils import styler
+from storage import storageService
 
 class TgService:
     _tgApp = None
-    _chat_ids = set()  # Store chat IDs of users who have interacted with the bot
 
     async def initBot(self, token: str) -> None:
         print("Starting Telegram bot...")
         self._tgApp = Application.builder().token(token).build()
 
         # on different commands - answer in Telegram
-        self._tgApp.add_handler(CommandHandler("start", self.start))
-        # application.add_handler(CommandHandler("help", help_command))
+        self._tgApp.add_handler(CommandHandler("start", self.commandStart))
         
         # Initialize the application
         await self._tgApp.initialize()
@@ -38,11 +37,11 @@ class TgService:
             await self._tgApp.updater.stop()
             await self._tgApp.shutdown()
 
-    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def commandStart(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /start is issued."""
         print("Received /start command")
         # Store the chat ID for future messaging
-        self._chat_ids.add(update.effective_chat.id)
+        storageService.saveChat(update.effective_chat.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)  # Store chat ID in storage service
         user = update.effective_user
         await update.message.reply_html(
             rf"Hi {user.mention_html()}!",
@@ -71,14 +70,17 @@ class TgService:
                 # Send to specific chat
                 await self._tgApp.bot.send_message(chat_id=chat_id, text=message)
                 return True
+
             
+            chatIdArray = storageService.getAllChatIds()
+
             # Send to all known chats
-            if not self._chat_ids:
+            if not chatIdArray:
                 styler.error("No chat IDs available. Users need to interact with the bot first.")
                 return False
             
             success_count = 0
-            for cid in self._chat_ids.copy():  # Use copy to avoid modification during iteration
+            for cid in chatIdArray.copy():  # Use copy to avoid modification during iteration
                 try:
                     await self._tgApp.bot.send_message(chat_id=cid, text=message)
                     success_count += 1
@@ -87,30 +89,12 @@ class TgService:
                     # Optionally remove invalid chat IDs
                     # self._chat_ids.discard(cid)
             
-            print(f"Message sent to {success_count}/{len(self._chat_ids)} chats: {message}")
+            print(f"Message sent to {success_count}/{len(chatIdArray)} chats: {message}")
             return success_count > 0
                 
         except Exception as e:
             print(f"Error sending message: {e}")
             return False
-
-    def getChatIds(self) -> list:
-        """
-        Get list of all stored chat IDs.
-        
-        Returns:
-            list: List of chat IDs
-        """
-        return list(self._chat_ids)
-
-    def addChatId(self, chat_id: int) -> None:
-        """
-        Manually add a chat ID for messaging.
-        
-        Args:
-            chat_id (int): Chat ID to add
-        """
-        self._chat_ids.add(chat_id)
 
 
 tgService = TgService()
