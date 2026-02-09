@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import asyncio
 from typing import Optional
 from config import config
+import state
 from utils import styler, networkService
 from state import stateService
 from tgService import tgService
@@ -87,23 +88,13 @@ class SvitloService():
         await self._sendTgNotification(isOn=isOn)
 
 
-    def _printElectricityState(self) -> None:
-        icon = stateService.getStatusIcon()
-
-        if stateService.isElectricityOn():
-            styler.success(icon + " Electricity is ON")
-        else:
-            styler.error(icon + " Electricity is OFF")
-
-
     async def _sendTgNotification(self, isOn: bool) -> None:
         """Send telegram notification about electricity state change"""
         if not tgService:
             return  # Telegram service not available
 
-        icon = "💡" if isOn else "🚫"
-        status = "ON" if isOn else "OFF"
-        message = f"{icon} Electricity status changed: {status} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        status = stateService.getStatus()
+        message = f"{status['icon']} - {status['text']}"
 
         try:
             await tgService.sendCustomMessage(message)

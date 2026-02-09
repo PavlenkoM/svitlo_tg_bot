@@ -22,6 +22,15 @@ class StateService:
             return "❓"  # Unknown state
         return "💡" if self._electricityState.isOn else "🌚"
     
+    def getStatus(self) -> dict:
+        state = self.getElectricityState()
+        return {
+            "isOn": state.isOn,
+            "lastUpdateTime": state.lastUpdateTime,
+            "icon": self.getStatusIcon(),
+            "text": "ON" if state.isOn else "OFF" if state.isOn is not None else "UNKNOWN"
+        }
+    
     
     def isElectricityOn(self) -> Optional[bool]:
         return self._electricityState.isOn
