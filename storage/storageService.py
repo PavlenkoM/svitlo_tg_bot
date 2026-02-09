@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
+from utils import styler
 
 @dataclass
 class ChatInfo:
@@ -75,7 +76,7 @@ class StorageService:
         try:
             # Check if chat_id already exists
             if self.get_chat_info(chat_id):
-                print(f"Chat ID {chat_id} already exists")
+                styler.info(f"Chat ID {chat_id} already exists")
                 return False
             
             chat_info = ChatInfo(
@@ -93,11 +94,11 @@ class StorageService:
                 writer = csv.DictWriter(file, fieldnames=fieldnames)
                 writer.writerow(chat_info.to_dict())
             
-            print(f"Chat ID {chat_id} saved successfully")
+            styler.success(f"Chat ID {chat_id} saved successfully")
             return True
             
         except Exception as e:
-            print(f"Error saving chat ID: {e}")
+            styler.error(f"Error saving chat ID: {e}")
             return False
     
     def getAllChatIds(self) -> List[int]:
@@ -116,10 +117,10 @@ class StorageService:
                         chat_ids.append(int(row['chat_id']))
             return chat_ids
         except FileNotFoundError:
-            print(f"CSV file not found: {self.csv_file_path}")
+            styler.error(f"CSV file not found: {self.csv_file_path}")
             return []
         except Exception as e:
-            print(f"Error reading chat IDs: {e}")
+            styler.error(f"Error reading chat IDs: {e}")
             return []
     
     def get_all_chat_info(self) -> List[ChatInfo]:
@@ -137,10 +138,10 @@ class StorageService:
                     chat_infos.append(ChatInfo.from_dict(row))
             return chat_infos
         except FileNotFoundError:
-            print(f"CSV file not found: {self.csv_file_path}")
+            styler.error(f"CSV file not found: {self.csv_file_path}")
             return []
         except Exception as e:
-            print(f"Error reading chat info: {e}")
+            styler.error(f"Error reading chat info: {e}")
             return []
     
     def get_active_chat_ids(self) -> List[int]:
@@ -188,14 +189,14 @@ class StorageService:
             
             if len(filtered_info) < original_count:
                 self._write_all_chat_info(filtered_info)
-                print(f"Chat ID {chat_id} deleted successfully")
+                styler.success(f"Chat ID {chat_id} deleted successfully")
                 return True
             else:
-                print(f"Chat ID {chat_id} not found")
+                styler.warning(f"Chat ID {chat_id} not found")
                 return False
                 
         except Exception as e:
-            print(f"Error deleting chat ID: {e}")
+            styler.error(f"Error deleting chat ID: {e}")
             return False
     
     def deactivate_chat_id(self, chat_id: int) -> bool:
@@ -220,14 +221,14 @@ class StorageService:
             
             if updated:
                 self._write_all_chat_info(all_info)
-                print(f"Chat ID {chat_id} deactivated successfully")
+                styler.success(f"Chat ID {chat_id} deactivated successfully")
                 return True
             else:
-                print(f"Chat ID {chat_id} not found")
+                styler.warning(f"Chat ID {chat_id} not found")
                 return False
                 
         except Exception as e:
-            print(f"Error deactivating chat ID: {e}")
+            styler.error(f"Error deactivating chat ID: {e}")
             return False
     
     def activate_chat_id(self, chat_id: int) -> bool:
@@ -252,14 +253,14 @@ class StorageService:
             
             if updated:
                 self._write_all_chat_info(all_info)
-                print(f"Chat ID {chat_id} activated successfully")
+                styler.success(f"Chat ID {chat_id} activated successfully")
                 return True
             else:
-                print(f"Chat ID {chat_id} not found")
+                styler.warning(f"Chat ID {chat_id} not found")
                 return False
                 
         except Exception as e:
-            print(f"Error activating chat ID: {e}")
+            styler.error(f"Error activating chat ID: {e}")
             return False
     
     def _write_all_chat_info(self, chat_infos: List[ChatInfo]) -> bool:
@@ -282,7 +283,7 @@ class StorageService:
                     writer.writerow(info.to_dict())
             return True
         except Exception as e:
-            print(f"Error writing chat info: {e}")
+            styler.error(f"Error writing chat info: {e}")
             return False
     
     def get_statistics(self) -> Dict[str, Any]:
@@ -312,10 +313,10 @@ class StorageService:
         """
         try:
             self._write_all_chat_info([])
-            print("All chat IDs cleared successfully")
+            styler.success("All chat IDs cleared successfully")
             return True
         except Exception as e:
-            print(f"Error clearing chat IDs: {e}")
+            styler.error(f"Error clearing chat IDs: {e}")
             return False
 
 # Create a singleton instance

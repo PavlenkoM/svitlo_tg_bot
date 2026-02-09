@@ -9,7 +9,7 @@ class TgService:
     _tgApp = None
 
     async def initBot(self, token: str) -> None:
-        print("Starting Telegram bot...")
+        styler.info("Starting Telegram bot...")
         self._tgApp = Application.builder().token(token).build()
 
         # on different commands - answer in Telegram
@@ -17,14 +17,14 @@ class TgService:
         
         # Initialize the application
         await self._tgApp.initialize()
-        print("Telegram bot initialized.")
+        styler.info("Telegram bot initialized.")
     
     async def startPolling(self, token) -> None:
         """Start the bot polling"""
         if not self._tgApp:
             await self.initBot(token)
 
-        print("Starting Telegram bot polling...")
+        styler.info("Starting Telegram bot polling...")
         # Start the bot using the updater
         await self._tgApp.updater.start_polling(allowed_updates=Update.ALL_TYPES)
         await self._tgApp.start()
@@ -39,7 +39,7 @@ class TgService:
 
     async def commandStart(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /start is issued."""
-        print("Received /start command")
+        styler.info("Received /start command")
         # Store the chat ID for future messaging
         storageService.saveChat(update.effective_chat.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)  # Store chat ID in storage service
         user = update.effective_user
@@ -89,11 +89,11 @@ class TgService:
                     # Optionally remove invalid chat IDs
                     # self._chat_ids.discard(cid)
             
-            print(f"Message sent to {success_count}/{len(chatIdArray)} chats: {message}")
+            styler.info(f"Message sent to {success_count}/{len(chatIdArray)} chats: {message}")
             return success_count > 0
                 
         except Exception as e:
-            print(f"Error sending message: {e}")
+            styler.error(f"Error sending message: {e}")
             return False
 
 

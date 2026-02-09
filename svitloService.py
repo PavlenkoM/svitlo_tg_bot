@@ -61,20 +61,20 @@ class SvitloService():
                 await svitloService.checkStatus(ipAddress)
                 checkDuration = (datetime.now() - checkStartTime).total_seconds()
                 
-                print(f"Check completed in {checkDuration:.1f}s")
+                styler.info(f"Check completed in {checkDuration:.1f}s")
                 
                 # Calculate next check time and wait
                 nextCheckTime = currentTime + timedelta(seconds=intervalSeconds)
                 remainingTime = intervalSeconds - checkDuration
                 
                 if remainingTime > 0:
-                    print(f"Next check at {nextCheckTime.strftime('%H:%M:%S')} (waiting {remainingTime/60:.1f} minutes)")
+                    styler.info(f"Next check at {nextCheckTime.strftime('%H:%M:%S')} (waiting {remainingTime/60:.1f} minutes)")
                     await asyncio.sleep(remainingTime)
                 else:
-                    print(f"Check took longer than interval. Starting next check immediately.")
+                    styler.info(f"Check took longer than interval. Starting next check immediately.")
                     
         except KeyboardInterrupt:
-            print(f"\nStatus checking stopped by user at {datetime.now().strftime('%H:%M:%S')}")
+            styler.warning(f"\nStatus checking stopped by user at {datetime.now().strftime('%H:%M:%S')}")
 
 
     async def updateSvitloState(self, isOn: bool) -> None:
