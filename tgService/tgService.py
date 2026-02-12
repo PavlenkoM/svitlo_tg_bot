@@ -43,10 +43,7 @@ class TgService:
         # Store the chat ID for future messaging
         storageService.saveChat(update.effective_chat.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)  # Store chat ID in storage service
         user = update.effective_user
-        await update.message.reply_html(
-            rf"Hi {user.mention_html()}!",
-            reply_markup=ForceReply(selective=True),
-        )
+        await update.message.reply_html(rf"Hi {user.first_name}!")
 
     async def sendCustomMessage(self, message: str, chat_id: int = None) -> bool:
         """
