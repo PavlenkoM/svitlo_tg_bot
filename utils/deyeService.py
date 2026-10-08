@@ -85,25 +85,28 @@ class DeyeService:
             except Exception:
                 pass
 
-    async def isGridOn(self) -> Optional[bool]:
+    def isGridOn(self, reading: GridReading) -> bool:
+        """Grid is ON if any phase voltage reaches min-grid-voltage"""
+        minVoltage = self._getConfig().get('min-grid-voltage', 180)
+        return max(reading.voltages) >= minVoltage
+
+    async def checkGrid(self) -> Optional[GridReading]:
         """
-        Check if the city grid is present by grid voltage.
+        Read grid data and log it.
         Returns None when the state is unknown (logger did not respond).
         """
         reading = await self.readGrid()
         if reading is None:
             return None
 
-        minVoltage = self._getConfig().get('min-grid-voltage', 180)
-        isOn = max(reading.voltages) >= minVoltage
-
+        isOn = self.isGridOn(reading)
         voltagesText = ' / '.join(f'{v:.1f}' for v in reading.voltages)
         message = (f'Grid {"ON" if isOn else "OFF"}: {voltagesText} V, {reading.frequency:.2f} Hz, '
                    f'relay {"closed" if reading.isGridRelayOn else "open"}, '
                    f'grid power {reading.gridPower} W, battery {reading.batterySoc}%')
         styler.power(message, isOn=isOn)
 
-        return isOn
+        return reading
 
 
 deyeService = DeyeService()
