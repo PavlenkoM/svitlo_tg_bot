@@ -1,6 +1,8 @@
+import html
 import logging
 import asyncio
-from telegram import ForceReply, Update
+from telegram import BotCommand, ForceReply, Update
+from telegram.error import Forbidden
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from utils import styler
 from storage import storageService
@@ -14,9 +16,19 @@ class TgService:
 
         # on different commands - answer in Telegram
         self._tgApp.add_handler(CommandHandler("start", self.commandStart))
-        
+        self._tgApp.add_handler(CommandHandler("stop", self.commandStop))
+
         # Initialize the application
         await self._tgApp.initialize()
+
+        # Show the commands in the Telegram menu
+        try:
+            await self._tgApp.bot.set_my_commands([
+                BotCommand("start", "Subscribe to electricity notifications"),
+                BotCommand("stop", "Unsubscribe"),
+            ])
+        except Exception as e:
+            styler.warning(f"Failed to set bot commands menu: {e}")
         styler.info("Telegram bot initialized.")
     
     async def startPolling(self, token) -> None:
@@ -38,12 +50,27 @@ class TgService:
             await self._tgApp.shutdown()
 
     async def commandStart(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Send a message when the command /start is issued."""
+        """Subscribe the chat to notifications when the command /start is issued."""
         styler.info("Received /start command")
-        # Store the chat ID for future messaging
-        storageService.saveChat(update.effective_chat.id, update.effective_user.username, update.effective_user.first_name, update.effective_user.last_name)  # Store chat ID in storage service
+        chatId = update.effective_chat.id
         user = update.effective_user
-        await update.message.reply_html(rf"Hi {user.first_name}!")
+
+        # Store the chat ID for future messaging, or re-subscribe a chat that sent /stop before
+        if storageService.get_chat_info(chatId):
+            storageService.activate_chat_id(chatId)
+        else:
+            storageService.saveChat(chatId, user.username, user.first_name, user.last_name)
+
+        await update.message.reply_html(
+            f"Hi {html.escape(user.first_name or '')}!\n"
+            "You are subscribed to electricity notifications. Send /stop to unsubscribe."
+        )
+
+    async def commandStop(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Unsubscribe the chat from notifications when the command /stop is issued."""
+        styler.info("Received /stop command")
+        storageService.deactivate_chat_id(update.effective_chat.id)
+        await update.message.reply_text("You are unsubscribed. Send /start to subscribe again.")
 
     async def sendCustomMessage(self, message: str, chat_id: int = None) -> bool:
         """
@@ -81,10 +108,12 @@ class TgService:
                 try:
                     await self._tgApp.bot.send_message(chat_id=cid, text=message)
                     success_count += 1
+                except Forbidden as e:
+                    # User blocked the bot or removed it from the group: stop sending to this chat
+                    styler.warning(f"Chat {cid} is not available anymore ({e}). Unsubscribing it.")
+                    storageService.deactivate_chat_id(cid)
                 except Exception as e:
                     styler.error(f"Failed to send message to chat {cid}: {e}")
-                    # Optionally remove invalid chat IDs
-                    # self._chat_ids.discard(cid)
             
             styler.info(f"Message sent to {success_count}/{len(chatIdArray)} chats: {message}")
             return success_count > 0
