@@ -85,10 +85,12 @@ class DeyeService:
             except Exception:
                 pass
 
+    def getMinGridVoltage(self) -> float:
+        return self._getConfig().get('min-grid-voltage', 180)
+
     def isGridOn(self, reading: GridReading) -> bool:
         """Grid is ON if any phase voltage reaches min-grid-voltage"""
-        minVoltage = self._getConfig().get('min-grid-voltage', 180)
-        return max(reading.voltages) >= minVoltage
+        return max(reading.voltages) >= self.getMinGridVoltage()
 
     async def checkGrid(self) -> Optional[GridReading]:
         """

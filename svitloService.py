@@ -7,6 +7,10 @@ from utils import styler, deyeService
 from state import stateService
 from tgService import tgService
 
+# Phase voltage considered good, volts (230 V ±10% is 207-253 V by EU standard)
+GOOD_VOLTAGE_MIN = 220
+GOOD_VOLTAGE_MAX = 250
+
 # Import the telegram service (avoid circular import by importing when needed)
 _tg_service = None
 
@@ -93,13 +97,21 @@ class SvitloService():
         await self._sendTgNotification(voltages=voltages)
 
 
+    def _getPhaseIcon(self, voltage: float) -> str:
+        if voltage < deyeService.getMinGridVoltage():
+            return "🔴"  # No electricity on the phase
+        if GOOD_VOLTAGE_MIN <= voltage <= GOOD_VOLTAGE_MAX:
+            return "🟢"
+        return "🟡"  # Too low or too high voltage
+
+
     async def _sendTgNotification(self, voltages: List[float]) -> None:
         """Send telegram notification about electricity state change"""
         if not tgService:
             return  # Telegram service not available
 
         status = stateService.getStatus()
-        phasesText = ' | '.join(f"L{i + 1}: {voltage:.0f} V" for i, voltage in enumerate(voltages))
+        phasesText = ' | '.join(f"{self._getPhaseIcon(voltage)} {voltage:.0f} V" for voltage in voltages)
         message = f"{status['icon']} - {status['text']}\n{phasesText}"
 
         try:
