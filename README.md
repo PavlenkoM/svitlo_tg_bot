@@ -2,12 +2,7 @@
 
 Telegram bot that watches whether the city electricity grid is on and notifies all chats that started the bot when the state changes.
 
-Two ways to detect electricity (set `check-method` in `config/config.yaml`):
-
-| Method | How it works | When to use |
-|---|---|---|
-| `ping` | Pings a local device that is powered only from the city grid | No inverter / UPS in the house |
-| `deye-local` | Reads grid voltage from a Deye inverter via its Solarman WiFi logger on the local network (TCP port 8899) | Inverter + battery keep everything powered during outages |
+Electricity is detected by grid voltage reported by a Deye inverter. The bot reads it from the inverter's Solarman WiFi logger over the local network (TCP port 8899), so the bot must run in the same network as the logger. Pinging a device does not work with an inverter + battery, because everything stays powered during outages.
 
 ## Configuration
 
@@ -17,15 +12,11 @@ cp config/example_config.yaml config/config.yaml
 
 Edit `config/config.yaml`:
 - `telegram-token` — token from [@BotFather](https://t.me/BotFather)
-- `check-method` — `ping` or `deye-local`
-- for `ping`: `ip-address` of the device to ping
-- for `deye-local`: `logger-ip` and `logger-serial` (see below)
+- `deye-local` → `logger-ip` and `logger-serial` (see below)
 
 All options are described in `config/example_config.yaml`.
 
-### Deye inverter (`deye-local`)
-
-The bot reads the inverter through its WiFi logger stick. It must run in the same local network as the logger.
+### Deye inverter logger
 
 1. Reserve a fixed IP for the logger in your router (DHCP reservation).
 2. Check that the logger accepts local connections:
@@ -36,13 +27,13 @@ The bot reads the inverter through its WiFi logger stick. It must run in the sam
    ```bash
    python3 deyeProbe.py --discover
    ```
-   If nothing is found, take it from the logger sticker or from the Deye Cloud app ("Datalogger SN").
+   If nothing is found, take it from the logger sticker or the logger web page (`http://<logger-ip>`, Status → Device serial number).
 4. Check the readings:
    ```bash
    python3 deyeProbe.py <logger-ip> <logger-serial>
    ```
    With the grid on you should see about 230 V on each phase and about 50 Hz.
-5. Put `logger-ip` and `logger-serial` under `deye-local` in `config/config.yaml` and set `check-method: 'deye-local'`.
+5. Put `logger-ip` and `logger-serial` under `deye-local` in `config/config.yaml`.
 
 Register map is for Deye 3-phase low-voltage hybrid inverters (SUN-*K-SG04LP3 / SG05LP3).
 
@@ -59,8 +50,8 @@ cd svitlo_tg_bot
 The script:
 - installs missing system packages (`python3`, `python3-venv`, `git`), Node.js and pm2
 - creates `venv/` and installs Python dependencies
-- if `config/config.yaml` does not exist, asks for the Telegram token and check method, and for `deye-local` finds the inverter logger in the local network
-- checks the inverter connection (`deye-local` only)
+- if `config/config.yaml` does not exist, asks for the Telegram token and finds the inverter logger in the local network
+- checks the inverter connection
 - starts the bot with pm2 (an existing pm2 process that runs this bot is reused, not duplicated) and enables autostart after reboot
 
 It is safe to run again: to update, run `git pull && ./install.sh`. Use `APP_NAME=my-name ./install.sh` for a custom pm2 process name on the first install.
@@ -100,7 +91,7 @@ cp config/example_config.yaml config/config.yaml
 nano config/config.yaml
 ```
 
-For `deye-local`, run the checks from [Deye inverter](#deye-inverter-deye-local) using the venv Python, for example:
+Run the checks from [Deye inverter logger](#deye-inverter-logger) using the venv Python, for example:
 
 ```bash
 ./venv/bin/python deyeProbe.py --discover

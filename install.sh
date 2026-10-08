@@ -97,63 +97,44 @@ else
     read -rp "Telegram bot token (from @BotFather): " tgToken
     [[ -n "$tgToken" ]] || fail "Telegram token is required"
 
-    echo "How to detect electricity:"
-    echo "  1) deye-local - read grid voltage from Deye inverter WiFi logger"
-    echo "  2) ping       - ping a device powered only from the city grid"
-    read -rp "Choose [1]: " methodChoice
+    echo "Searching for inverter loggers in the local network..."
+    loggers="$(discoverLoggers 2>/dev/null || true)"
+    loggerIp=""; loggerSerial=""
 
-    if [[ "${methodChoice:-1}" == "2" ]]; then
-        read -rp "IP address to ping: " pingIp
-        [[ -n "$pingIp" ]] || fail "IP address is required"
-
-        cat > "$CONFIG_FILE" <<EOF
-telegram-token: $(yamlQuote "$tgToken")
-check-method: 'ping'
-ip-address: $(yamlQuote "$pingIp")
-EOF
+    if [[ -n "$loggers" ]]; then
+        echo "Found:"
+        echo "$loggers" | sed 's/^/  /'
+        read -r loggerIp loggerSerial <<< "$(echo "$loggers" | head -n 1)"
     else
-        echo "Searching for inverter loggers in the local network..."
-        loggers="$(discoverLoggers 2>/dev/null || true)"
-        loggerIp=""; loggerSerial=""
+        warn "No loggers answered. Enter the values manually (serial is on the logger sticker)."
+    fi
 
-        if [[ -n "$loggers" ]]; then
-            echo "Found:"
-            echo "$loggers" | sed 's/^/  /'
-            read -r loggerIp loggerSerial <<< "$(echo "$loggers" | head -n 1)"
-        else
-            warn "No loggers answered. Enter the values manually (serial is on the logger sticker)."
-        fi
+    read -rp "Logger IP [${loggerIp}]: " inputIp
+    read -rp "Logger serial number [${loggerSerial}]: " inputSerial
+    loggerIp="${inputIp:-$loggerIp}"
+    loggerSerial="${inputSerial:-$loggerSerial}"
 
-        read -rp "Logger IP [${loggerIp}]: " inputIp
-        read -rp "Logger serial number [${loggerSerial}]: " inputSerial
-        loggerIp="${inputIp:-$loggerIp}"
-        loggerSerial="${inputSerial:-$loggerSerial}"
+    [[ -n "$loggerIp" ]] || fail "Logger IP is required"
+    [[ "$loggerSerial" =~ ^[0-9]+$ ]] || fail "Logger serial must be a number"
 
-        [[ -n "$loggerIp" ]] || fail "Logger IP is required"
-        [[ "$loggerSerial" =~ ^[0-9]+$ ]] || fail "Logger serial must be a number"
-
-        cat > "$CONFIG_FILE" <<EOF
+    cat > "$CONFIG_FILE" <<EOF
 telegram-token: $(yamlQuote "$tgToken")
-check-method: 'deye-local'
 deye-local:
   logger-ip: $(yamlQuote "$loggerIp")
   logger-serial: $loggerSerial
 EOF
-    fi
 
     chmod 600 "$CONFIG_FILE"
     ok "Created $CONFIG_FILE (all options: config/example_config.yaml)"
 fi
 
 # ---------------------------------------------------------------------------
-if grep -qE "^check-method:\s*'?deye-local" "$CONFIG_FILE"; then
-    step "Checking inverter connection"
-    if (cd "$APP_DIR" && "$VENV_PY" deyeProbe.py); then
-        ok "Inverter responded"
-    else
-        warn "Could not read the inverter. Check logger-ip / logger-serial in $CONFIG_FILE"
-        warn "The bot will still start and keep the state UNKNOWN until the inverter responds."
-    fi
+step "Checking inverter connection"
+if (cd "$APP_DIR" && "$VENV_PY" deyeProbe.py); then
+    ok "Inverter responded"
+else
+    warn "Could not read the inverter. Check logger-ip / logger-serial in $CONFIG_FILE"
+    warn "The bot will still start and keep the state UNKNOWN until the inverter responds."
 fi
 
 # ---------------------------------------------------------------------------

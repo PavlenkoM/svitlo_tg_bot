@@ -9,6 +9,7 @@ One-off check of the Deye inverter connection. Run it on the device that runs th
 import argparse
 import asyncio
 import socket
+import sys
 from pysolarmanv5 import PySolarmanV5Async
 from config import config
 from utils.deyeService import FIRST_REGISTER, REGISTER_COUNT, parseRegisters
@@ -80,7 +81,11 @@ def main() -> None:
     if not ip or not serial:
         parser.error('pass <logger-ip> <logger-serial> or set them in config.yaml under deye-local')
 
-    asyncio.run(probe(ip, int(serial)))
+    try:
+        asyncio.run(probe(ip, int(serial)))
+    except Exception as e:
+        print(f'Failed to read inverter via logger {ip} (serial {serial}): {e!r}')
+        sys.exit(1)
 
 
 if __name__ == '__main__':

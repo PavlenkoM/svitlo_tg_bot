@@ -3,7 +3,7 @@ import asyncio
 from typing import Optional
 from config import config
 import state
-from utils import styler, networkService, deyeService
+from utils import styler, deyeService
 from state import stateService
 from tgService import tgService
 
@@ -21,12 +21,7 @@ class SvitloService():
         _tg_service = tg_service
 
     async def checkStatus(self) -> Optional[bool]:
-        checkMethod = config.get('check-method', 'ping')
-
-        if checkMethod == 'deye-local':
-            result = await deyeService.isGridOn()
-        else:
-            result = await networkService.ping(config['ip-address'])
+        result = await deyeService.isGridOn()
 
         if result is None:
             styler.warning("Electricity status is unknown. Keeping the previous state.")
