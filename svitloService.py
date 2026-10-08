@@ -3,7 +3,7 @@ import asyncio
 from typing import Optional
 from config import config
 import state
-from utils import styler, networkService
+from utils import styler, deyeService
 from state import stateService
 from tgService import tgService
 
@@ -20,15 +20,19 @@ class SvitloService():
         global _tg_service
         _tg_service = tg_service
 
-    async def checkStatus(self, ipAddress: str) -> bool:
-        result = await networkService.ping(ipAddress)
+    async def checkStatus(self) -> Optional[bool]:
+        result = await deyeService.isGridOn()
+
+        if result is None:
+            styler.warning("Electricity status is unknown. Keeping the previous state.")
+            return None
 
         await self.updateSvitloState(isOn=result)
 
         return result
-    
-    
-    async def runStatusChecksByTime(self, ipAddress: str, intervalSeconds: int, durationHours: Optional[int] = None) -> None:
+
+
+    async def runStatusChecksByTime(self, intervalSeconds: int, durationHours: Optional[int] = None) -> None:
         """
         Run checkStatus at time intervals
         
@@ -58,7 +62,7 @@ class SvitloService():
                 
                 # Run the status check
                 checkStartTime = datetime.now()
-                await svitloService.checkStatus(ipAddress)
+                await svitloService.checkStatus()
                 checkDuration = (datetime.now() - checkStartTime).total_seconds()
                 
                 styler.info(f"Check completed in {checkDuration:.1f}s")

@@ -7,12 +7,11 @@ from tgService import tgService
 
 async def main() -> None:
     intervalSeconds: Optional[int] = config.get('timeinterval-to-check', 30)
-    ipAddress: str = config['ip-address']
     tgToken = config['telegram-token']
-    
+
     # Create tasks for both services to run concurrently
     bot_task = asyncio.create_task(tgService.startPolling(tgToken))
-    status_task = asyncio.create_task(svitloService.runStatusChecksByTime(ipAddress, intervalSeconds))
+    status_task = asyncio.create_task(svitloService.runStatusChecksByTime(intervalSeconds))
     
     # Run both tasks concurrently
     try:
