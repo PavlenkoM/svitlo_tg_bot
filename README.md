@@ -11,7 +11,15 @@ Electricity is detected by grid voltage reported by a Deye inverter. The bot rea
 | `/start` | Subscribe the chat to notifications (also works again after `/stop`) |
 | `/stop` | Unsubscribe |
 
-Chats that block the bot or remove it from a group are unsubscribed automatically. Subscribers are stored in `storage/chat_ids.csv` (chat id, username, first and last name).
+Chats that block the bot or remove it from a group are unsubscribed automatically. Subscribers are stored in the SQLite database `storage/chat_ids.db` (chat id, username, first and last name). An old `storage/chat_ids.csv` is imported automatically on the first start and renamed to `chat_ids.csv.migrated`.
+
+To look at subscribers on the Pi:
+
+```bash
+sqlite3 storage/chat_ids.db 'SELECT * FROM chats'
+```
+
+(`sudo apt install sqlite3` if the command is missing.) Back up `storage/chat_ids.db` together with `config/config.yaml`.
 
 ## Configuration
 

@@ -15,8 +15,9 @@ class TgService:
         self._tgApp = Application.builder().token(token).build()
 
         # on different commands - answer in Telegram
-        self._tgApp.add_handler(CommandHandler("start", self.commandStart))
-        self._tgApp.add_handler(CommandHandler("stop", self.commandStop))
+        # Only new messages: edited messages have no update.message to reply to
+        self._tgApp.add_handler(CommandHandler("start", self.commandStart, filters=filters.UpdateType.MESSAGE))
+        self._tgApp.add_handler(CommandHandler("stop", self.commandStop, filters=filters.UpdateType.MESSAGE))
 
         # Initialize the application
         await self._tgApp.initialize()
