@@ -1,4 +1,20 @@
-ip-address: 'ip.address.to.check' # Add IP address to check if it is active
 telegram-token: 'telegram_token' # Add your Telegram bot token here. You can get it from BotFather on Telegram.
 # timeinterval-to-check: 20 # Optional. Seconds. By default it is 30 seconds
+
+# How to detect electricity. Optional. By default it is 'ping'
+#   ping       - ping a local device that is powered only from the city grid
+#   deye-local - read grid voltage from a Deye inverter via its Solarman WiFi logger (local network, port 8899)
+check-method: 'ping'
+
+# Used when check-method is 'ping'
+ip-address: 'ip.address.to.check' # Add IP address to check if it is active
 # number-of-packets: 4 # Optional. By default it is 4 packets
+
+# Used when check-method is 'deye-local'
+deye-local:
+  logger-ip: '192.168.1.100' # IP address of the inverter WiFi logger. Reserve it in the router so it does not change
+  logger-serial: 1234567890 # Serial number of the WiFi logger (NOT the inverter). On the logger sticker or in the Deye Cloud app
+  # port: 8899 # Optional. By default it is 8899
+  # slave-id: 1 # Optional. Modbus slave id of the inverter. By default it is 1
+  # timeout: 15 # Optional. Seconds to wait for the logger response. By default it is 15
+  # min-grid-voltage: 180 # Optional. Volts. Grid is ON if any phase is at or above this value. By default it is 180
