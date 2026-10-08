@@ -1,2 +1,4 @@
 /config/config.yaml
 chat_ids.csv
+venv/
+__pycache__/
