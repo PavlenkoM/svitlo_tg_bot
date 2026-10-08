@@ -4,6 +4,15 @@ Telegram bot that watches whether the city electricity grid is on and notifies a
 
 Electricity is detected by grid voltage reported by a Deye inverter. The bot reads it from the inverter's Solarman WiFi logger over the local network (TCP port 8899), so the bot must run in the same network as the logger. Pinging a device does not work with an inverter + battery, because everything stays powered during outages.
 
+## Bot commands
+
+| Command | Action |
+|---|---|
+| `/start` | Subscribe the chat to notifications (also works again after `/stop`) |
+| `/stop` | Unsubscribe |
+
+Chats that block the bot or remove it from a group are unsubscribed automatically. Subscribers are stored in `storage/chat_ids.csv` (chat id, username, first and last name).
+
 ## Configuration
 
 ```bash
