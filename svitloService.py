@@ -1,11 +1,15 @@
 from datetime import datetime, timedelta
 import asyncio
-from typing import Optional
+from typing import List, Optional
 from config import config
 import state
 from utils import styler, deyeService
 from state import stateService
 from tgService import tgService
+
+# Phase voltage considered good, volts (230 V ±10% is 207-253 V by EU standard)
+GOOD_VOLTAGE_MIN = 220
+GOOD_VOLTAGE_MAX = 250
 
 # Import the telegram service (avoid circular import by importing when needed)
 _tg_service = None
@@ -21,15 +25,16 @@ class SvitloService():
         _tg_service = tg_service
 
     async def checkStatus(self) -> Optional[bool]:
-        result = await deyeService.isGridOn()
+        reading = await deyeService.checkGrid()
 
-        if result is None:
+        if reading is None:
             styler.warning("Electricity status is unknown. Keeping the previous state.")
             return None
 
-        await self.updateSvitloState(isOn=result)
+        isOn = deyeService.isGridOn(reading)
+        await self.updateSvitloState(isOn=isOn, voltages=reading.voltages)
 
-        return result
+        return isOn
 
 
     async def runStatusChecksByTime(self, intervalSeconds: int, durationHours: Optional[int] = None) -> None:
@@ -81,24 +86,33 @@ class SvitloService():
             styler.warning(f"\nStatus checking stopped by user at {datetime.now().strftime('%H:%M:%S')}")
 
 
-    async def updateSvitloState(self, isOn: bool) -> None:
+    async def updateSvitloState(self, isOn: bool, voltages: List[float]) -> None:
         currentState = stateService.getElectricityState()
-        
+
         if currentState.isOn == isOn:
             return  # No change in state
 
         styler.info(f"State change: electricity status from {currentState.isOn} to {isOn}")
         stateService.setElectricityState(isOn)
-        await self._sendTgNotification(isOn=isOn)
+        await self._sendTgNotification(voltages=voltages)
 
 
-    async def _sendTgNotification(self, isOn: bool) -> None:
+    def _getPhaseIcon(self, voltage: float) -> str:
+        if voltage < deyeService.getMinGridVoltage():
+            return "🔴"  # No electricity on the phase
+        if GOOD_VOLTAGE_MIN <= voltage <= GOOD_VOLTAGE_MAX:
+            return "🟢"
+        return "🟡"  # Too low or too high voltage
+
+
+    async def _sendTgNotification(self, voltages: List[float]) -> None:
         """Send telegram notification about electricity state change"""
         if not tgService:
             return  # Telegram service not available
 
         status = stateService.getStatus()
-        message = f"{status['icon']} - {status['text']}"
+        phasesText = ' | '.join(f"{self._getPhaseIcon(voltage)} {voltage:.0f} V" for voltage in voltages)
+        message = f"{status['icon']} - {status['text']}\n{phasesText}"
 
         try:
             await tgService.sendCustomMessage(message)
