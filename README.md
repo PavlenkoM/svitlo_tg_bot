@@ -27,7 +27,11 @@ All options are described in `config/example_config.yaml`.
    ```bash
    python3 deyeProbe.py --discover
    ```
-   If nothing is found, take it from the logger sticker or the logger web page (`http://<logger-ip>`, Status → Device serial number).
+   Some logger firmwares ignore discovery. Then read the serial directly from the logger by its IP:
+   ```bash
+   python3 deyeProbe.py --find-serial <logger-ip>
+   ```
+   It is also on the logger sticker.
 4. Check the readings:
    ```bash
    python3 deyeProbe.py <logger-ip> <logger-serial>
@@ -50,7 +54,7 @@ cd svitlo_tg_bot
 The script:
 - installs missing system packages (`python3`, `python3-venv`, `git`), Node.js and pm2
 - creates `venv/` and installs Python dependencies
-- if `config/config.yaml` does not exist, asks for the Telegram token and finds the inverter logger in the local network
+- if `config/config.yaml` does not exist, asks for the Telegram token and the logger IP, and finds the logger serial automatically
 - checks the inverter connection
 - starts the bot with pm2 (an existing pm2 process that runs this bot is reused, not duplicated) and enables autostart after reboot
 

@@ -106,15 +106,22 @@ else
         echo "$loggers" | sed 's/^/  /'
         read -r loggerIp loggerSerial <<< "$(echo "$loggers" | head -n 1)"
     else
-        warn "No loggers answered. Enter the values manually (serial is on the logger sticker)."
+        warn "No loggers answered the discovery request (some logger firmwares ignore it)."
     fi
 
     read -rp "Logger IP [${loggerIp}]: " inputIp
-    read -rp "Logger serial number [${loggerSerial}]: " inputSerial
     loggerIp="${inputIp:-$loggerIp}"
+    [[ -n "$loggerIp" ]] || fail "Logger IP is required"
+
+    if [[ -z "$loggerSerial" ]]; then
+        echo "Reading serial number from logger $loggerIp..."
+        loggerSerial="$(cd "$APP_DIR" && "$VENV_PY" deyeProbe.py --find-serial "$loggerIp" 2>/dev/null | grep -E '^[0-9]+$' || true)"
+        [[ -n "$loggerSerial" ]] && ok "Logger serial: $loggerSerial" || warn "Could not read it. Serial is on the logger sticker."
+    fi
+
+    read -rp "Logger serial number [${loggerSerial}]: " inputSerial
     loggerSerial="${inputSerial:-$loggerSerial}"
 
-    [[ -n "$loggerIp" ]] || fail "Logger IP is required"
     [[ "$loggerSerial" =~ ^[0-9]+$ ]] || fail "Logger serial must be a number"
 
     cat > "$CONFIG_FILE" <<EOF

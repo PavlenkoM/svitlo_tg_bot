@@ -3,19 +3,23 @@
 One-off check of the Deye inverter connection. Run it on the device that runs the bot.
 
   python3 deyeProbe.py --discover                  # find logger IP and serial on the local network
+  python3 deyeProbe.py --find-serial <logger-ip>   # get serial from a logger that ignores discovery
   python3 deyeProbe.py <logger-ip> <logger-serial> # read grid data
   python3 deyeProbe.py                             # read grid data using 'deye-local' from config.yaml
 """
 import argparse
 import asyncio
 import socket
+import struct
 import sys
+from typing import Optional
 from pysolarmanv5 import PySolarmanV5Async
-from config import config
+from umodbus.client.serial import rtu
 from utils.deyeService import FIRST_REGISTER, REGISTER_COUNT, parseRegisters
 
 DISCOVERY_PORT = 48899
 DISCOVERY_MESSAGE = b'WIFIKIT-214028-READ'
+LOGGER_PORT = 8899
 
 
 def discover() -> None:
@@ -36,7 +40,26 @@ def discover() -> None:
         pass
 
     if not found:
-        print('No loggers answered. Take the serial number from the logger sticker or the Deye Cloud app.')
+        print('No loggers answered. If you know the logger IP, run: python3 deyeProbe.py --find-serial <logger-ip>')
+
+
+def findLoggerSerial(ip: str) -> Optional[int]:
+    """
+    Send one read request with serial 0. The logger puts its own serial
+    into the header of every reply, even when the request serial is wrong.
+    """
+    modbusFrame = rtu.read_holding_registers(1, FIRST_REGISTER, 1)
+    payload = b'\x02' + bytes(14) + modbusFrame  # frame type + sensor type + 3 timestamps
+    frame = b'\xa5' + struct.pack('<HHHI', len(payload), 0x4510, 0, 0) + payload
+    frame += bytes([sum(frame[1:]) & 0xFF, 0x15])  # checksum + end byte
+
+    with socket.create_connection((ip, LOGGER_PORT), timeout=10) as sock:
+        sock.sendall(frame)
+        reply = sock.recv(1024)
+
+    if len(reply) < 11 or reply[0] != 0xA5:
+        return None
+    return struct.unpack('<I', reply[7:11])[0]
 
 
 async def probe(ip: str, serial: int) -> None:
@@ -69,15 +92,34 @@ def main() -> None:
     parser.add_argument('ip', nargs='?', help='logger IP address')
     parser.add_argument('serial', nargs='?', type=int, help='logger serial number')
     parser.add_argument('--discover', action='store_true', help='find loggers on the local network')
+    parser.add_argument('--find-serial', metavar='LOGGER_IP', help='print the serial number of the logger at this IP')
     args = parser.parse_args()
 
     if args.discover:
         discover()
         return
 
-    deyeConfig = config.get('deye-local', {})
-    ip = args.ip or deyeConfig.get('logger-ip')
-    serial = args.serial or deyeConfig.get('logger-serial')
+    if args.find_serial:
+        try:
+            serial = findLoggerSerial(args.find_serial)
+        except OSError as e:
+            print(f'Cannot connect to logger {args.find_serial}:{LOGGER_PORT}: {e}')
+            sys.exit(1)
+        if serial is None:
+            print('Logger reply was not recognized')
+            sys.exit(1)
+        print(serial)
+        return
+
+    ip, serial = args.ip, args.serial
+    if not ip or not serial:
+        try:
+            from config import config  # only needed here: config.yaml may not exist yet during install
+        except FileNotFoundError:
+            parser.error('config/config.yaml not found: pass <logger-ip> <logger-serial>')
+        deyeConfig = config.get('deye-local', {})
+        ip = ip or deyeConfig.get('logger-ip')
+        serial = serial or deyeConfig.get('logger-serial')
     if not ip or not serial:
         parser.error('pass <logger-ip> <logger-serial> or set them in config.yaml under deye-local')
 

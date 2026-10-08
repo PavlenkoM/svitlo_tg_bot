@@ -2,7 +2,6 @@ import asyncio
 from dataclasses import dataclass
 from typing import List, Optional
 from pysolarmanv5 import PySolarmanV5Async
-from config import config
 from .printStyler import styler
 
 # Holding registers of Deye 3-phase LV hybrid inverters (SUN-*K-SG04LP3 / SG05LP3).
@@ -48,6 +47,7 @@ def parseRegisters(registers: List[int]) -> GridReading:
 
 class DeyeService:
     def _getConfig(self) -> dict:
+        from config import config  # imported lazily so deyeProbe.py works before config.yaml exists
         return config.get('deye-local', {})
 
     async def readGrid(self) -> Optional[GridReading]:
