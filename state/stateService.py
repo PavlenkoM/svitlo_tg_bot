@@ -1,19 +1,20 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple
 from utils import styler, GridStatus
 from .types import ElectricityState
 
 class StateService:
     def __init__(self):
-        self._electricityState: ElectricityState = ElectricityState(status = None, lastUpdateTime = None)
+        self._electricityState: ElectricityState = ElectricityState(status = None, phaseIcons = (), lastUpdateTime = None)
 
 
     def getElectricityState(self) -> ElectricityState:
         return self._electricityState
 
  
-    def setElectricityState(self, status: GridStatus) -> None:
+    def setElectricityState(self, status: GridStatus, phaseIcons: Tuple[str, ...]) -> None:
         self._electricityState.status = status
+        self._electricityState.phaseIcons = phaseIcons
         self._electricityState.lastUpdateTime = datetime.now()
 
 

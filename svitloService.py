@@ -88,13 +88,18 @@ class SvitloService():
 
     async def updateSvitloState(self, status: GridStatus, voltages: List[float]) -> None:
         currentState = stateService.getElectricityState()
+        phaseIcons = tuple(self._getPhaseIcon(voltage) for voltage in voltages)
 
-        if currentState.status == status:
+        if currentState.status != status:
+            previous = currentState.status.value if currentState.status else "UNKNOWN"
+            styler.info(f"State change: electricity status from {previous} to {status.value}")
+        elif status is GridStatus.PARTIAL and currentState.phaseIcons != phaseIcons:
+            # Still PARTIAL, but a phase moved to another zone (🟢/🟡/🔴)
+            styler.info(f"Phase change: {''.join(currentState.phaseIcons)} to {''.join(phaseIcons)}")
+        else:
             return  # No change in state
 
-        previous = currentState.status.value if currentState.status else "UNKNOWN"
-        styler.info(f"State change: electricity status from {previous} to {status.value}")
-        stateService.setElectricityState(status)
+        stateService.setElectricityState(status, phaseIcons)
         await self._sendTgNotification(voltages=voltages)
 
 

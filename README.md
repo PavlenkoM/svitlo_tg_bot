@@ -16,6 +16,8 @@ A message is sent to all subscribed chats when the grid state changes:
 
 A phase has electricity when its voltage is at least `min-grid-voltage`. Each message also shows every phase voltage: 🟢 220–250 V, 🟡 too low or too high, 🔴 no electricity.
 
+While the state is ⚠️ PARTIAL, a message is also sent when any phase moves to another zone (for example 🟡 → 🔴). Voltage changes inside the same zone (195 V → 196 V) do not send messages.
+
 ```
 ⚠️ - PARTIAL
 🟡 200 V | 🟡 200 V | 🔴 0 V
