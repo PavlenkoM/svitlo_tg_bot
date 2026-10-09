@@ -3,7 +3,7 @@ import asyncio
 from typing import List, Optional
 from config import config
 import state
-from utils import styler, deyeService
+from utils import styler, deyeService, GridStatus
 from state import stateService
 from tgService import tgService
 
@@ -24,17 +24,17 @@ class SvitloService():
         global _tg_service
         _tg_service = tg_service
 
-    async def checkStatus(self) -> Optional[bool]:
+    async def checkStatus(self) -> Optional[GridStatus]:
         reading = await deyeService.checkGrid()
 
         if reading is None:
             styler.warning("Electricity status is unknown. Keeping the previous state.")
             return None
 
-        isOn = deyeService.isGridOn(reading)
-        await self.updateSvitloState(isOn=isOn, voltages=reading.voltages)
+        status = deyeService.getGridStatus(reading)
+        await self.updateSvitloState(status=status, voltages=reading.voltages)
 
-        return isOn
+        return status
 
 
     async def runStatusChecksByTime(self, intervalSeconds: int, durationHours: Optional[int] = None) -> None:
@@ -86,14 +86,20 @@ class SvitloService():
             styler.warning(f"\nStatus checking stopped by user at {datetime.now().strftime('%H:%M:%S')}")
 
 
-    async def updateSvitloState(self, isOn: bool, voltages: List[float]) -> None:
+    async def updateSvitloState(self, status: GridStatus, voltages: List[float]) -> None:
         currentState = stateService.getElectricityState()
+        phaseIcons = tuple(self._getPhaseIcon(voltage) for voltage in voltages)
 
-        if currentState.isOn == isOn:
+        if currentState.status != status:
+            previous = currentState.status.value if currentState.status else "UNKNOWN"
+            styler.info(f"State change: electricity status from {previous} to {status.value}")
+        elif status is GridStatus.PARTIAL and currentState.phaseIcons != phaseIcons:
+            # Still PARTIAL, but a phase moved to another zone (🟢/🟡/🔴)
+            styler.info(f"Phase change: {''.join(currentState.phaseIcons)} to {''.join(phaseIcons)}")
+        else:
             return  # No change in state
 
-        styler.info(f"State change: electricity status from {currentState.isOn} to {isOn}")
-        stateService.setElectricityState(isOn)
+        stateService.setElectricityState(status, phaseIcons)
         await self._sendTgNotification(voltages=voltages)
 
 

@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import dataclass
+from enum import Enum
 from typing import List, Optional
 from pysolarmanv5 import PySolarmanV5Async
 from .printStyler import styler
@@ -16,6 +17,12 @@ REG_GRID_FREQUENCY = 609   # x0.01 Hz
 REG_GRID_POWER = 625       # W, signed
 
 GRID_RELAY_BIT = 0b100
+
+
+class GridStatus(Enum):
+    ON = 'ON'            # all phases have electricity
+    PARTIAL = 'PARTIAL'  # some phases have electricity: inverter works from the battery
+    OFF = 'OFF'          # no phase has electricity
 
 
 @dataclass
@@ -88,9 +95,16 @@ class DeyeService:
     def getMinGridVoltage(self) -> float:
         return self._getConfig().get('min-grid-voltage', 180)
 
-    def isGridOn(self, reading: GridReading) -> bool:
-        """Grid is ON if any phase voltage reaches min-grid-voltage"""
-        return max(reading.voltages) >= self.getMinGridVoltage()
+    def getGridStatus(self, reading: GridReading) -> GridStatus:
+        """ON if all phases have electricity, OFF if none, PARTIAL otherwise"""
+        minVoltage = self.getMinGridVoltage()
+        phasesOn = sum(voltage >= minVoltage for voltage in reading.voltages)
+
+        if phasesOn == len(reading.voltages):
+            return GridStatus.ON
+        if phasesOn == 0:
+            return GridStatus.OFF
+        return GridStatus.PARTIAL
 
     async def checkGrid(self) -> Optional[GridReading]:
         """
@@ -101,12 +115,12 @@ class DeyeService:
         if reading is None:
             return None
 
-        isOn = self.isGridOn(reading)
+        status = self.getGridStatus(reading)
         voltagesText = ' / '.join(f'{v:.1f}' for v in reading.voltages)
-        message = (f'Grid {"ON" if isOn else "OFF"}: {voltagesText} V, {reading.frequency:.2f} Hz, '
+        message = (f'Grid {status.value}: {voltagesText} V, {reading.frequency:.2f} Hz, '
                    f'relay {"closed" if reading.isGridRelayOn else "open"}, '
                    f'grid power {reading.gridPower} W, battery {reading.batterySoc}%')
-        styler.power(message, isOn=isOn)
+        styler.power(message, isOn=status is GridStatus.ON)
 
         return reading
 

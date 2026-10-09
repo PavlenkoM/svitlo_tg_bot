@@ -4,6 +4,25 @@ Telegram bot that watches whether the city electricity grid is on and notifies a
 
 Electricity is detected by grid voltage reported by a Deye inverter. The bot reads it from the inverter's Solarman WiFi logger over the local network (TCP port 8899), so the bot must run in the same network as the logger. Pinging a device does not work with an inverter + battery, because everything stays powered during outages.
 
+## Notifications
+
+A message is sent to all subscribed chats when the grid state changes:
+
+| State | Meaning |
+|---|---|
+| 💡 ON | all 3 phases have electricity |
+| ⚠️ PARTIAL | 1 or 2 phases have electricity — the inverter disconnects from the grid and works from the battery |
+| 🌚 OFF | no electricity on any phase |
+
+A phase has electricity when its voltage is at least `min-grid-voltage`. Each message also shows every phase voltage: 🟢 220–250 V, 🟡 too low or too high, 🔴 no electricity.
+
+While the state is ⚠️ PARTIAL, a message is also sent when any phase moves to another zone (for example 🟡 → 🔴). Voltage changes inside the same zone (195 V → 196 V) do not send messages.
+
+```
+⚠️ - PARTIAL
+🟡 200 V | 🟡 200 V | 🔴 0 V
+```
+
 ## Bot commands
 
 | Command | Action |
