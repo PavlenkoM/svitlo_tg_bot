@@ -1,39 +1,35 @@
 from datetime import datetime
 from typing import Optional
-from utils import styler
+from utils import styler, GridStatus
 from .types import ElectricityState
 
 class StateService:
     def __init__(self):
-        self._electricityState: ElectricityState = ElectricityState(isOn = None, lastUpdateTime = None)
+        self._electricityState: ElectricityState = ElectricityState(status = None, lastUpdateTime = None)
 
 
     def getElectricityState(self) -> ElectricityState:
         return self._electricityState
 
  
-    def setElectricityState(self, isOn: bool) -> None:
-        self._electricityState.isOn = isOn
+    def setElectricityState(self, status: GridStatus) -> None:
+        self._electricityState.status = status
         self._electricityState.lastUpdateTime = datetime.now()
 
 
     def getStatusIcon(self) -> str:
-        if self._electricityState.isOn is None:
-            return "❓"  # Unknown state
-        return "💡" if self._electricityState.isOn else "🌚"
+        icons = {GridStatus.ON: "💡", GridStatus.PARTIAL: "⚠️", GridStatus.OFF: "🌚"}
+        return icons.get(self._electricityState.status, "❓")  # ❓ - unknown state
     
     def getStatus(self) -> dict:
         state = self.getElectricityState()
         return {
-            "isOn": state.isOn,
+            "status": state.status,
             "lastUpdateTime": state.lastUpdateTime,
             "icon": self.getStatusIcon(),
-            "text": "ON" if state.isOn else "OFF" if state.isOn is not None else "UNKNOWN"
+            "text": state.status.value if state.status else "UNKNOWN"
         }
-    
-    
-    def isElectricityOn(self) -> Optional[bool]:
-        return self._electricityState.isOn
+
 
 
 
