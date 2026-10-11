@@ -1,15 +1,38 @@
 import html
 import logging
 import asyncio
-from typing import List, Optional
-from telegram import BotCommand, ForceReply, Update
+from typing import Awaitable, Callable, List, Optional
+from telegram import BotCommand, BotCommandScopeChat, ForceReply, Update
 from telegram.error import Forbidden
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from config import config
 from utils import styler
 from storage import storageService
 
+# Commands in the Telegram menu for everyone
+PUBLIC_COMMANDS = [
+    BotCommand("start", "Subscribe to electricity notifications"),
+    BotCommand("stop", "Unsubscribe"),
+    BotCommand("partial_on", "Also notify when only some phases have electricity"),
+    BotCommand("partial_off", "Notify only ON / OFF"),
+    BotCommand("phases_on", "Show phase voltages in messages"),
+    BotCommand("phases_off", "Hide phase voltages in messages"),
+]
+# Extra commands shown only in the private chats of admins
+ADMIN_COMMANDS = [
+    BotCommand("status", "Current electricity status (admin)"),
+]
+
 class TgService:
     _tgApp = None
+    _statusProvider: Optional[Callable[[], Awaitable[str]]] = None
+
+    def setStatusProvider(self, provider: Callable[[], Awaitable[str]]) -> None:
+        """Function that builds the /status reply (set from main to avoid a circular import)"""
+        self._statusProvider = provider
+
+    def _getAdminIds(self) -> List[int]:
+        return [int(adminId) for adminId in config.get('admin-ids') or []]
 
     async def initBot(self, token: str) -> None:
         styler.info("Starting Telegram bot...")
@@ -23,22 +46,23 @@ class TgService:
         self._tgApp.add_handler(CommandHandler("partial_off", self.commandPartialOff, filters=filters.UpdateType.MESSAGE))
         self._tgApp.add_handler(CommandHandler("phases_on", self.commandPhasesOn, filters=filters.UpdateType.MESSAGE))
         self._tgApp.add_handler(CommandHandler("phases_off", self.commandPhasesOff, filters=filters.UpdateType.MESSAGE))
+        self._tgApp.add_handler(CommandHandler("status", self.commandStatus, filters=filters.UpdateType.MESSAGE))
 
         # Initialize the application
         await self._tgApp.initialize()
 
         # Show the commands in the Telegram menu
         try:
-            await self._tgApp.bot.set_my_commands([
-                BotCommand("start", "Subscribe to electricity notifications"),
-                BotCommand("stop", "Unsubscribe"),
-                BotCommand("partial_on", "Also notify when only some phases have electricity"),
-                BotCommand("partial_off", "Notify only ON / OFF"),
-                BotCommand("phases_on", "Show phase voltages in messages"),
-                BotCommand("phases_off", "Hide phase voltages in messages"),
-            ])
+            await self._tgApp.bot.set_my_commands(PUBLIC_COMMANDS)
         except Exception as e:
             styler.warning(f"Failed to set bot commands menu: {e}")
+
+        # Admin menu: only in the admin's private chat (private chat id == user id)
+        for adminId in self._getAdminIds():
+            try:
+                await self._tgApp.bot.set_my_commands(PUBLIC_COMMANDS + ADMIN_COMMANDS, scope=BotCommandScopeChat(adminId))
+            except Exception as e:
+                styler.warning(f"Failed to set admin commands menu for {adminId} (send /start to the bot first): {e}")
         styler.info("Telegram bot initialized.")
     
     async def startPolling(self, token) -> None:
@@ -107,6 +131,19 @@ class TgService:
         await self._setChatSetting(update, "phases_off", storageService.set_show_phases, False,
             "Phase voltages are hidden. Messages show only the state, for example 💡 - ON.\n"
             "Send /phases_on to show them.")
+
+    async def commandStatus(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Current electricity status. Admins only, in a private chat; others get no reply at all."""
+        userId = update.effective_user.id if update.effective_user else None
+        if userId not in self._getAdminIds() or update.effective_chat.type != "private":
+            styler.warning(f"Ignored /status from user {userId} in chat {update.effective_chat.id}: not an admin private chat")
+            return
+
+        styler.info("Received /status command")
+        if not self._statusProvider:
+            await update.message.reply_text("Status is not available.")
+            return
+        await update.message.reply_text(await self._statusProvider())
 
     async def _setChatSetting(self, update: Update, command: str, setter, value: bool, reply: str) -> None:
         styler.info(f"Received /{command} command")

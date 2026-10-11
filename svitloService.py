@@ -127,6 +127,28 @@ class SvitloService():
         return "🟡"  # Too low or too high voltage
 
 
+    async def getStatusReport(self) -> str:
+        """Fresh reading from the inverter with all details, for the admin /status command"""
+        reading = await deyeService.readGrid()
+        state = stateService.getElectricityState()
+        sinceText = state.lastUpdateTime.strftime('%d.%m %H:%M') if state.lastUpdateTime else "bot start"
+
+        if reading is None:
+            lastStatus = state.status.value if state.status else "UNKNOWN"
+            return f"❓ Inverter is not responding.\nLast known state: {lastStatus} (since {sinceText})"
+
+        status = deyeService.getGridStatus(reading)
+        phasesText = ' | '.join(f"{self._getPhaseIcon(voltage)} {voltage:.0f} V" for voltage in reading.voltages)
+        return (
+            f"{stateService.getIconFor(status)} - {status.value}\n"
+            f"{phasesText}\n"
+            f"{reading.frequency:.2f} Hz, grid relay {'closed' if reading.isGridRelayOn else 'open'}\n"
+            f"Grid power: {reading.gridPower} W\n"
+            f"Battery: {reading.batterySoc}%\n"
+            f"Last state change: {sinceText}"
+        )
+
+
     async def _sendTgNotification(self, status: GridStatus, voltages: List[float], showPartial: bool) -> None:
         """Send telegram notification about electricity state change to chats with this PARTIAL setting"""
         if not tgService:
