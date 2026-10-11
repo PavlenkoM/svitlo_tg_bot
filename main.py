@@ -9,6 +9,8 @@ async def main() -> None:
     intervalSeconds: Optional[int] = config.get('timeinterval-to-check', 30)
     tgToken = config['telegram-token']
 
+    tgService.setStatusProvider(svitloService.getStatusReport)
+
     # Create tasks for both services to run concurrently
     bot_task = asyncio.create_task(tgService.startPolling(tgToken))
     status_task = asyncio.create_task(svitloService.runStatusChecksByTime(intervalSeconds))

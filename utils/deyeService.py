@@ -57,11 +57,22 @@ class DeyeService:
         from config import config  # imported lazily so deyeProbe.py works before config.yaml exists
         return config.get('deye-local', {})
 
+    _readLock: Optional[asyncio.Lock] = None
+
     async def readGrid(self) -> Optional[GridReading]:
         """
         Read grid data from the inverter through the Solarman logger on the local network.
         Returns None if the logger did not respond.
         """
+        # One read at a time: the periodic check and /status may read at the same moment,
+        # and the logger handles parallel connections badly.
+        # Created on first use so it belongs to the running event loop.
+        if self._readLock is None:
+            self._readLock = asyncio.Lock()
+        async with self._readLock:
+            return await self._readGridUnlocked()
+
+    async def _readGridUnlocked(self) -> Optional[GridReading]:
         deyeConfig = self._getConfig()
         loggerIp = deyeConfig['logger-ip']
         timeoutSeconds = deyeConfig.get('timeout', 15)

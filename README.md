@@ -36,6 +36,14 @@ While the state is ⚠️ PARTIAL, a message is also sent when any phase moves t
 | `/phases_on` | Show phase voltages in messages |
 | `/phases_off` | Hide phase voltages: messages show only the state, for example `💡 - ON` (default) |
 
+**Admin command.** `/status` replies with a fresh reading from the inverter: state, phase voltages, frequency, grid relay, grid power, battery and the time of the last state change. It works only for Telegram user ids listed in `admin-ids` in `config/config.yaml`, and only in a private chat with the bot. Other users get no reply and don't see the command in the menu.
+
+```yaml
+admin-ids: [123456789]
+```
+
+Your user id is the id of your private chat in `storage/chat_ids.db` after you send `/start`. Restart the bot after changing `admin-ids`.
+
 Chats that block the bot or remove it from a group are unsubscribed automatically. Subscribers are stored in the SQLite database `storage/chat_ids.db` (chat id, username, first and last name, PARTIAL and phases settings). An old `storage/chat_ids.csv` is imported automatically on the first start and renamed to `chat_ids.csv.migrated`.
 
 To look at subscribers on the Pi:
