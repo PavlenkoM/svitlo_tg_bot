@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import asyncio
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from config import config
 import state
 from utils import styler, deyeService, GridStatus
@@ -93,14 +93,18 @@ class SvitloService():
         if currentState.status != status:
             previous = currentState.status.value if currentState.status else "UNKNOWN"
             styler.info(f"State change: electricity status from {previous} to {status.value}")
-        elif status is GridStatus.PARTIAL and currentState.phaseIcons != phaseIcons:
-            # Still PARTIAL, but a phase moved to another zone (🟢/🟡/🔴)
+        elif status is GridStatus.PARTIAL and self._getRedPhases(currentState.phaseIcons) != self._getRedPhases(phaseIcons):
+            # Still PARTIAL, but a phase moved to or from 🔴 (🟢 <-> 🟡 is not worth a message)
             styler.info(f"Phase change: {''.join(currentState.phaseIcons)} to {''.join(phaseIcons)}")
         else:
             return  # No change in state
 
         stateService.setElectricityState(status, phaseIcons)
         await self._sendTgNotification(voltages=voltages)
+
+
+    def _getRedPhases(self, phaseIcons: Tuple[str, ...]) -> Tuple[bool, ...]:
+        return tuple(icon == "🔴" for icon in phaseIcons)
 
 
     def _getPhaseIcon(self, voltage: float) -> str:
