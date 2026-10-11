@@ -18,6 +18,11 @@ class ChatInfo:
     date_added: str = ""
     is_active: bool = True
     show_partial: bool = False
+    show_phases: bool = True
+
+
+# Per-chat settings stored as columns: name -> default
+CHAT_SETTINGS = {'show_partial': False, 'show_phases': True}
 
 
 class StorageService:
@@ -48,14 +53,16 @@ class StorageService:
                     last_name  TEXT    NOT NULL DEFAULT '',
                     date_added TEXT    NOT NULL DEFAULT '',
                     is_active  INTEGER NOT NULL DEFAULT 1,
-                    show_partial INTEGER NOT NULL DEFAULT 0
+                    show_partial INTEGER NOT NULL DEFAULT 0,
+                    show_phases  INTEGER NOT NULL DEFAULT 1
                 )
             """)
 
-            # Databases created before the show_partial setting existed
+            # Databases created before a chat setting existed
             columns = [row[1] for row in conn.execute("PRAGMA table_info(chats)")]
-            if 'show_partial' not in columns:
-                conn.execute("ALTER TABLE chats ADD COLUMN show_partial INTEGER NOT NULL DEFAULT 0")
+            for column, default in CHAT_SETTINGS.items():
+                if column not in columns:
+                    conn.execute(f"ALTER TABLE chats ADD COLUMN {column} INTEGER NOT NULL DEFAULT {int(default)}")
 
     def _migrate_from_csv(self, csv_file_path: str) -> None:
         """Import chats from the old CSV storage once, then keep the CSV as a backup"""
@@ -110,17 +117,19 @@ class StorageService:
             styler.error(f"Error saving chat ID: {e}")
             return False
 
-    def getAllChatIds(self, show_partial: Optional[bool] = None) -> List[int]:
-        """Get IDs of all active chats, optionally only the ones with this show_partial setting"""
+    def getAllChatIds(self, show_partial: Optional[bool] = None, show_phases: Optional[bool] = None) -> List[int]:
+        """Get IDs of all active chats, optionally only the ones with these settings"""
+        conditions, params = ["is_active = 1"], []
+        for column, value in (("show_partial", show_partial), ("show_phases", show_phases)):
+            if value is not None:
+                conditions.append(f"{column} = ?")
+                params.append(value)
+
         try:
             with closing(self._connect()) as conn:
-                if show_partial is None:
-                    rows = conn.execute("SELECT chat_id FROM chats WHERE is_active = 1 ORDER BY chat_id").fetchall()
-                else:
-                    rows = conn.execute(
-                        "SELECT chat_id FROM chats WHERE is_active = 1 AND show_partial = ? ORDER BY chat_id",
-                        (show_partial,)
-                    ).fetchall()
+                rows = conn.execute(
+                    f"SELECT chat_id FROM chats WHERE {' AND '.join(conditions)} ORDER BY chat_id", params
+                ).fetchall()
             return [row[0] for row in rows]
         except Exception as e:
             styler.error(f"Error reading chat IDs: {e}")
@@ -131,7 +140,7 @@ class StorageService:
         try:
             with closing(self._connect()) as conn:
                 row = conn.execute(
-                    "SELECT chat_id, username, first_name, last_name, date_added, is_active, show_partial "
+                    "SELECT chat_id, username, first_name, last_name, date_added, is_active, show_partial, show_phases "
                     "FROM chats WHERE chat_id = ?", (chat_id,)
                 ).fetchone()
         except Exception as e:
@@ -140,7 +149,7 @@ class StorageService:
 
         if row is None:
             return None
-        return ChatInfo(*row[:5], is_active=bool(row[5]), show_partial=bool(row[6]))
+        return ChatInfo(*row[:5], is_active=bool(row[5]), show_partial=bool(row[6]), show_phases=bool(row[7]))
 
     def deactivate_chat_id(self, chat_id: int) -> bool:
         """Mark a chat ID as inactive (soft delete)"""
@@ -152,15 +161,24 @@ class StorageService:
 
     def set_show_partial(self, chat_id: int, show_partial: bool) -> bool:
         """Turn PARTIAL notifications on or off for a chat. Returns False if the chat is not subscribed"""
+        return self._set_setting(chat_id, 'show_partial', show_partial)
+
+    def set_show_phases(self, chat_id: int, show_phases: bool) -> bool:
+        """Show or hide phase voltages in notifications for a chat. Returns False if the chat is not subscribed"""
+        return self._set_setting(chat_id, 'show_phases', show_phases)
+
+    def _set_setting(self, chat_id: int, column: str, value: bool) -> bool:
+        if column not in CHAT_SETTINGS:  # column name goes into SQL text, never take it from outside
+            raise ValueError(f"Unknown chat setting: {column}")
         try:
             with closing(self._connect()) as conn, conn:
-                cursor = conn.execute("UPDATE chats SET show_partial = ? WHERE chat_id = ?", (show_partial, chat_id))
+                cursor = conn.execute(f"UPDATE chats SET {column} = ? WHERE chat_id = ?", (value, chat_id))
 
             if cursor.rowcount == 0:
                 styler.warning(f"Chat ID {chat_id} not found")
                 return False
 
-            styler.success(f"Chat ID {chat_id} PARTIAL notifications {'on' if show_partial else 'off'}")
+            styler.success(f"Chat ID {chat_id} {column} = {value}")
             return True
         except Exception as e:
             styler.error(f"Error updating chat ID {chat_id}: {e}")

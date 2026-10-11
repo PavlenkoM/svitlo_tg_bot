@@ -105,9 +105,9 @@ class SvitloService():
 
         stateService.setElectricityState(status, phaseIcons)
 
-        await self._sendTgNotification(status, voltages, storageService.getAllChatIds(show_partial=True))
+        await self._sendTgNotification(status, voltages, showPartial=True)
         if isBasicStatusChanged:
-            await self._sendTgNotification(self._getBasicStatus(status), voltages, storageService.getAllChatIds(show_partial=False))
+            await self._sendTgNotification(self._getBasicStatus(status), voltages, showPartial=False)
 
 
     def _getBasicStatus(self, status: Optional[GridStatus]) -> Optional[GridStatus]:
@@ -127,18 +127,24 @@ class SvitloService():
         return "🟡"  # Too low or too high voltage
 
 
-    async def _sendTgNotification(self, status: GridStatus, voltages: List[float], chatIds: List[int]) -> None:
-        """Send telegram notification about electricity state change"""
-        if not tgService or not chatIds:
-            return  # Telegram service not available or nobody to notify
+    async def _sendTgNotification(self, status: GridStatus, voltages: List[float], showPartial: bool) -> None:
+        """Send telegram notification about electricity state change to chats with this PARTIAL setting"""
+        if not tgService:
+            return  # Telegram service not available
 
+        statusText = f"{stateService.getIconFor(status)} - {status.value}"
         phasesText = ' | '.join(f"{self._getPhaseIcon(voltage)} {voltage:.0f} V" for voltage in voltages)
-        message = f"{stateService.getIconFor(status)} - {status.value}\n{phasesText}"
 
-        try:
-            await tgService.sendCustomMessage(message, chat_ids=chatIds)
-        except Exception as e:
-            styler.error(f"Failed to send telegram notification: {e}")
+        for showPhases in (True, False):
+            chatIds = storageService.getAllChatIds(show_partial=showPartial, show_phases=showPhases)
+            if not chatIds:
+                continue  # Nobody to notify
+
+            message = f"{statusText}\n{phasesText}" if showPhases else statusText
+            try:
+                await tgService.sendCustomMessage(message, chat_ids=chatIds)
+            except Exception as e:
+                styler.error(f"Failed to send telegram notification: {e}")
 
 
 svitloService = SvitloService()
