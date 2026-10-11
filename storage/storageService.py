@@ -18,11 +18,11 @@ class ChatInfo:
     date_added: str = ""
     is_active: bool = True
     show_partial: bool = False
-    show_phases: bool = True
+    show_phases: bool = False
 
 
 # Per-chat settings stored as columns: name -> default
-CHAT_SETTINGS = {'show_partial': False, 'show_phases': True}
+CHAT_SETTINGS = {'show_partial': False, 'show_phases': False}
 
 
 class StorageService:
@@ -54,7 +54,7 @@ class StorageService:
                     date_added TEXT    NOT NULL DEFAULT '',
                     is_active  INTEGER NOT NULL DEFAULT 1,
                     show_partial INTEGER NOT NULL DEFAULT 0,
-                    show_phases  INTEGER NOT NULL DEFAULT 1
+                    show_phases  INTEGER NOT NULL DEFAULT 0
                 )
             """)
 
@@ -100,11 +100,13 @@ class StorageService:
         """
         try:
             with closing(self._connect()) as conn, conn:
+                # Settings are set explicitly: databases created earlier may have other column defaults
                 cursor = conn.execute(
-                    "INSERT OR IGNORE INTO chats (chat_id, username, first_name, last_name, date_added) "
-                    "VALUES (?, ?, ?, ?, ?)",
+                    "INSERT OR IGNORE INTO chats (chat_id, username, first_name, last_name, date_added, "
+                    "show_partial, show_phases) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (chat_id, username or '', first_name or '', last_name or '',
-                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                     CHAT_SETTINGS['show_partial'], CHAT_SETTINGS['show_phases'])
                 )
 
             if cursor.rowcount == 0:
