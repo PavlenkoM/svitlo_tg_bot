@@ -19,8 +19,11 @@ class StateService:
 
 
     def getStatusIcon(self) -> str:
+        return self.getIconFor(self._electricityState.status)
+
+    def getIconFor(self, status: Optional[GridStatus]) -> str:
         icons = {GridStatus.ON: "💡", GridStatus.PARTIAL: "⚠️", GridStatus.OFF: "🌚"}
-        return icons.get(self._electricityState.status, "❓")  # ❓ - unknown state
+        return icons.get(status, "❓")  # ❓ - unknown state
     
     def getStatus(self) -> dict:
         state = self.getElectricityState()

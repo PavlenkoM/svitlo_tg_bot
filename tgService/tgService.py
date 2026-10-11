@@ -1,6 +1,7 @@
 import html
 import logging
 import asyncio
+from typing import List, Optional
 from telegram import BotCommand, ForceReply, Update
 from telegram.error import Forbidden
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -18,6 +19,8 @@ class TgService:
         # Only new messages: edited messages have no update.message to reply to
         self._tgApp.add_handler(CommandHandler("start", self.commandStart, filters=filters.UpdateType.MESSAGE))
         self._tgApp.add_handler(CommandHandler("stop", self.commandStop, filters=filters.UpdateType.MESSAGE))
+        self._tgApp.add_handler(CommandHandler("partial_on", self.commandPartialOn, filters=filters.UpdateType.MESSAGE))
+        self._tgApp.add_handler(CommandHandler("partial_off", self.commandPartialOff, filters=filters.UpdateType.MESSAGE))
 
         # Initialize the application
         await self._tgApp.initialize()
@@ -27,6 +30,8 @@ class TgService:
             await self._tgApp.bot.set_my_commands([
                 BotCommand("start", "Subscribe to electricity notifications"),
                 BotCommand("stop", "Unsubscribe"),
+                BotCommand("partial_on", "Also notify when only some phases have electricity"),
+                BotCommand("partial_off", "Notify only ON / OFF"),
             ])
         except Exception as e:
             styler.warning(f"Failed to set bot commands menu: {e}")
@@ -73,13 +78,37 @@ class TgService:
         storageService.deactivate_chat_id(update.effective_chat.id)
         await update.message.reply_text("You are unsubscribed. Send /start to subscribe again.")
 
-    async def sendCustomMessage(self, message: str, chat_id: int = None) -> bool:
+    async def commandPartialOn(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Turn on PARTIAL notifications for the chat"""
+        styler.info("Received /partial_on command")
+        if not storageService.set_show_partial(update.effective_chat.id, True):
+            await update.message.reply_text("You are not subscribed. Send /start first.")
+            return
+        await update.message.reply_text(
+            "⚠️ PARTIAL messages are ON.\n"
+            "You will also get a message when only some phases have electricity. "
+            "Send /partial_off to get only ON / OFF."
+        )
+
+    async def commandPartialOff(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Turn off PARTIAL notifications for the chat"""
+        styler.info("Received /partial_off command")
+        if not storageService.set_show_partial(update.effective_chat.id, False):
+            await update.message.reply_text("You are not subscribed. Send /start first.")
+            return
+        await update.message.reply_text(
+            "PARTIAL messages are OFF.\n"
+            "You will get only ON / OFF. Send /partial_on to turn them on."
+        )
+
+    async def sendCustomMessage(self, message: str, chat_id: int = None, chat_ids: Optional[List[int]] = None) -> bool:
         """
         Send a custom message to bot chat(s).
         
         Args:
             message (str): The message to send
             chat_id (int, optional): Specific chat ID to send to. If None, sends to all known chats.
+            chat_ids (List[int], optional): Send only to these chats instead of all known chats.
         
         Returns:
             bool: True if message was sent successfully, False otherwise
@@ -97,7 +126,7 @@ class TgService:
                 return True
 
             
-            chatIdArray = storageService.getAllChatIds()
+            chatIdArray = chat_ids if chat_ids is not None else storageService.getAllChatIds()
 
             # Send to all known chats
             if not chatIdArray:
