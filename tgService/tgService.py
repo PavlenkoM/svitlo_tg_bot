@@ -21,6 +21,8 @@ class TgService:
         self._tgApp.add_handler(CommandHandler("stop", self.commandStop, filters=filters.UpdateType.MESSAGE))
         self._tgApp.add_handler(CommandHandler("partial_on", self.commandPartialOn, filters=filters.UpdateType.MESSAGE))
         self._tgApp.add_handler(CommandHandler("partial_off", self.commandPartialOff, filters=filters.UpdateType.MESSAGE))
+        self._tgApp.add_handler(CommandHandler("phases_on", self.commandPhasesOn, filters=filters.UpdateType.MESSAGE))
+        self._tgApp.add_handler(CommandHandler("phases_off", self.commandPhasesOff, filters=filters.UpdateType.MESSAGE))
 
         # Initialize the application
         await self._tgApp.initialize()
@@ -32,6 +34,8 @@ class TgService:
                 BotCommand("stop", "Unsubscribe"),
                 BotCommand("partial_on", "Also notify when only some phases have electricity"),
                 BotCommand("partial_off", "Notify only ON / OFF"),
+                BotCommand("phases_on", "Show phase voltages in messages"),
+                BotCommand("phases_off", "Hide phase voltages in messages"),
             ])
         except Exception as e:
             styler.warning(f"Failed to set bot commands menu: {e}")
@@ -80,26 +84,36 @@ class TgService:
 
     async def commandPartialOn(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Turn on PARTIAL notifications for the chat"""
-        styler.info("Received /partial_on command")
-        if not storageService.set_show_partial(update.effective_chat.id, True):
-            await update.message.reply_text("You are not subscribed. Send /start first.")
-            return
-        await update.message.reply_text(
+        await self._setChatSetting(update, "partial_on", storageService.set_show_partial, True,
             "⚠️ PARTIAL messages are ON.\n"
             "You will also get a message when only some phases have electricity. "
-            "Send /partial_off to get only ON / OFF."
-        )
+            "Send /partial_off to get only ON / OFF.")
 
     async def commandPartialOff(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Turn off PARTIAL notifications for the chat"""
-        styler.info("Received /partial_off command")
-        if not storageService.set_show_partial(update.effective_chat.id, False):
+        await self._setChatSetting(update, "partial_off", storageService.set_show_partial, False,
+            "PARTIAL messages are OFF.\n"
+            "You will get only ON / OFF. Send /partial_on to turn them on.")
+
+    async def commandPhasesOn(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Show phase voltages in notifications for the chat"""
+        await self._setChatSetting(update, "phases_on", storageService.set_show_phases, True,
+            "Phase voltages are shown in messages:\n"
+            "🟢 230 V | 🟢 229 V | 🟢 228 V\n"
+            "Send /phases_off to hide them.")
+
+    async def commandPhasesOff(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Hide phase voltages in notifications for the chat"""
+        await self._setChatSetting(update, "phases_off", storageService.set_show_phases, False,
+            "Phase voltages are hidden. Messages show only the state, for example 💡 - ON.\n"
+            "Send /phases_on to show them.")
+
+    async def _setChatSetting(self, update: Update, command: str, setter, value: bool, reply: str) -> None:
+        styler.info(f"Received /{command} command")
+        if not setter(update.effective_chat.id, value):
             await update.message.reply_text("You are not subscribed. Send /start first.")
             return
-        await update.message.reply_text(
-            "PARTIAL messages are OFF.\n"
-            "You will get only ON / OFF. Send /partial_on to turn them on."
-        )
+        await update.message.reply_text(reply)
 
     async def sendCustomMessage(self, message: str, chat_id: int = None, chat_ids: Optional[List[int]] = None) -> bool:
         """
