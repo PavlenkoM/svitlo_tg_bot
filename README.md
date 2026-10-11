@@ -14,7 +14,7 @@ A message is sent to subscribed chats when the grid state changes:
 | ⚠️ PARTIAL | 1 or 2 phases have electricity — the inverter disconnects from the grid and works from the battery |
 | 🌚 OFF | no electricity on any phase |
 
-A phase has electricity when its voltage is at least `min-grid-voltage`. Each message also shows every phase voltage: 🟢 220–250 V, 🟡 too low or too high, 🔴 no electricity.
+A phase has electricity when its voltage is at least `min-grid-voltage`. With `/phases_on` a message also shows every phase voltage: 🟢 220–250 V, 🟡 too low or too high, 🔴 no electricity (hidden by default).
 
 While the state is ⚠️ PARTIAL, a message is also sent when any phase moves to or from 🔴 (for example 🟡 → 🔴). Changes between 🟢 and 🟡, and voltage changes inside the same zone (195 V → 196 V), do not send messages.
 
@@ -33,8 +33,8 @@ While the state is ⚠️ PARTIAL, a message is also sent when any phase moves t
 | `/stop` | Unsubscribe |
 | `/partial_on` | Also get ⚠️ PARTIAL messages |
 | `/partial_off` | Get only 💡 ON / 🌚 OFF (default) |
-| `/phases_on` | Show phase voltages in messages (default) |
-| `/phases_off` | Hide phase voltages: messages show only the state, for example `💡 - ON` |
+| `/phases_on` | Show phase voltages in messages |
+| `/phases_off` | Hide phase voltages: messages show only the state, for example `💡 - ON` (default) |
 
 Chats that block the bot or remove it from a group are unsubscribed automatically. Subscribers are stored in the SQLite database `storage/chat_ids.db` (chat id, username, first and last name, PARTIAL and phases settings). An old `storage/chat_ids.csv` is imported automatically on the first start and renamed to `chat_ids.csv.migrated`.
 
