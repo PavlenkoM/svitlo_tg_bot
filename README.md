@@ -6,7 +6,7 @@ Electricity is detected by grid voltage reported by a Deye inverter. The bot rea
 
 ## Notifications
 
-A message is sent to all subscribed chats when the grid state changes:
+A message is sent to subscribed chats when the grid state changes:
 
 | State | Meaning |
 |---|---|
@@ -23,14 +23,18 @@ While the state is ⚠️ PARTIAL, a message is also sent when any phase moves t
 🟡 200 V | 🟡 200 V | 🔴 0 V
 ```
 
+**PARTIAL messages are optional.** By default a chat gets only 💡 ON / 🌚 OFF: PARTIAL counts as ON, so OFF is sent only when all phases have no electricity. A chat can turn PARTIAL messages on with `/partial_on` and off with `/partial_off`; the choice is saved.
+
 ## Bot commands
 
 | Command | Action |
 |---|---|
 | `/start` | Subscribe the chat to notifications (also works again after `/stop`) |
 | `/stop` | Unsubscribe |
+| `/partial_on` | Also get ⚠️ PARTIAL messages |
+| `/partial_off` | Get only 💡 ON / 🌚 OFF (default) |
 
-Chats that block the bot or remove it from a group are unsubscribed automatically. Subscribers are stored in the SQLite database `storage/chat_ids.db` (chat id, username, first and last name). An old `storage/chat_ids.csv` is imported automatically on the first start and renamed to `chat_ids.csv.migrated`.
+Chats that block the bot or remove it from a group are unsubscribed automatically. Subscribers are stored in the SQLite database `storage/chat_ids.db` (chat id, username, first and last name, PARTIAL setting). An old `storage/chat_ids.csv` is imported automatically on the first start and renamed to `chat_ids.csv.migrated`.
 
 To look at subscribers on the Pi:
 

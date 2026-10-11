@@ -5,6 +5,7 @@ from config import config
 import state
 from utils import styler, deyeService, GridStatus
 from state import stateService
+from storage import storageService
 from tgService import tgService
 
 # Phase voltage considered good, volts (230 V ±10% is 207-253 V by EU standard)
@@ -99,8 +100,19 @@ class SvitloService():
         else:
             return  # No change in state
 
+        # Chats without PARTIAL notifications see PARTIAL as ON: notify them only when ON/OFF changes
+        isBasicStatusChanged = self._getBasicStatus(currentState.status) != self._getBasicStatus(status)
+
         stateService.setElectricityState(status, phaseIcons)
-        await self._sendTgNotification(voltages=voltages)
+
+        await self._sendTgNotification(status, voltages, storageService.getAllChatIds(show_partial=True))
+        if isBasicStatusChanged:
+            await self._sendTgNotification(self._getBasicStatus(status), voltages, storageService.getAllChatIds(show_partial=False))
+
+
+    def _getBasicStatus(self, status: Optional[GridStatus]) -> Optional[GridStatus]:
+        """ON/OFF only: PARTIAL counts as ON"""
+        return GridStatus.ON if status is GridStatus.PARTIAL else status
 
 
     def _getRedPhases(self, phaseIcons: Tuple[str, ...]) -> Tuple[bool, ...]:
@@ -115,17 +127,16 @@ class SvitloService():
         return "🟡"  # Too low or too high voltage
 
 
-    async def _sendTgNotification(self, voltages: List[float]) -> None:
+    async def _sendTgNotification(self, status: GridStatus, voltages: List[float], chatIds: List[int]) -> None:
         """Send telegram notification about electricity state change"""
-        if not tgService:
-            return  # Telegram service not available
+        if not tgService or not chatIds:
+            return  # Telegram service not available or nobody to notify
 
-        status = stateService.getStatus()
         phasesText = ' | '.join(f"{self._getPhaseIcon(voltage)} {voltage:.0f} V" for voltage in voltages)
-        message = f"{status['icon']} - {status['text']}\n{phasesText}"
+        message = f"{stateService.getIconFor(status)} - {status.value}\n{phasesText}"
 
         try:
-            await tgService.sendCustomMessage(message)
+            await tgService.sendCustomMessage(message, chat_ids=chatIds)
         except Exception as e:
             styler.error(f"Failed to send telegram notification: {e}")
 
