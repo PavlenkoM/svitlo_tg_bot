@@ -10,3 +10,12 @@ deye-local:
   # slave-id: 1 # Optional. Modbus slave id of the inverter. By default it is 1
   # timeout: 15 # Optional. Seconds to wait for the logger response. By default it is 15
   # min-grid-voltage: 180 # Optional. Volts. A phase has electricity if its voltage is at or above this value. By default it is 180
+
+# Optional. Show the grid state in the Apple Home app (HomeKit). Remove the # before 'homekit:' to turn it on.
+# The setup code is printed in the bot log on start (pm2 logs svitlo-bot) until the bridge is added in the Home app.
+# Pairing is saved in storage/homekit.state: back it up, otherwise the bridge must be added again.
+# homekit:
+#   name: 'Svitlo' # Optional. Bridge name in the Home app
+#   port: 51826 # Optional. TCP port of the HomeKit server
+#   pincode: '123-45-678' # Optional. Setup code. By default a random one is created and saved
+#   low-battery: 20 # Optional. Percent. Battery at or below this is shown as low in the Home app

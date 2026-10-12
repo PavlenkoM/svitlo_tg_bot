@@ -7,6 +7,7 @@ from utils import styler, deyeService, GridStatus
 from state import stateService
 from storage import storageService
 from tgService import tgService
+from homekitService import homekitService
 
 # Phase voltage considered good, volts (230 V ±10% is 207-253 V by EU standard)
 GOOD_VOLTAGE_MIN = 220
@@ -30,9 +31,11 @@ class SvitloService():
 
         if reading is None:
             styler.warning("Electricity status is unknown. Keeping the previous state.")
+            homekitService.setUnknown()
             return None
 
         status = deyeService.getGridStatus(reading)
+        homekitService.update(status, reading.batterySoc)
         await self.updateSvitloState(status=status, voltages=reading.voltages)
 
         return status
