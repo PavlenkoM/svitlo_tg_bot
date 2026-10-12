@@ -91,6 +91,28 @@ All options are described in `config/example_config.yaml`.
 
 Register map is for Deye 3-phase low-voltage hybrid inverters (SUN-*K-SG04LP3 / SG05LP3).
 
+### Apple Home (HomeKit)
+
+Optionally the bot also shows the grid state in the Apple Home app. It appears as a bridge (default name `Svitlo`) with two contact sensors:
+
+| Sensor | Closed | Open |
+|---|---|---|
+| Grid | 💡 ON or ⚠️ PARTIAL | 🌚 OFF |
+| All phases | 💡 ON | ⚠️ PARTIAL or 🌚 OFF |
+
+The Grid sensor also shows the inverter battery level (low at 20% or less). Both sensors show a fault while the inverter does not respond, and the Home app shows "No Response" when the bot is not running. Phase voltages are not shown: HomeKit has no such sensor type.
+
+To turn it on, add to `config/config.yaml` (all options in `config/example_config.yaml`) and restart the bot:
+
+```yaml
+homekit:
+  name: 'Svitlo'
+```
+
+Then in the Home app: **+** → **Add Accessory** → scan the QR code or enter the setup code from `pm2 logs svitlo-bot`. The phone must be in the same network as the bot. In the sensor settings you can turn on **Notifications** to get an alert when the state changes, and use the sensors in automations. Notifications outside home need a home hub (Apple TV or HomePod).
+
+The pairing is saved in `storage/homekit.state`: back it up together with `config/config.yaml`. Without it the bridge must be removed from the Home app and added again.
+
 ## Running on Raspberry Pi with pm2
 
 ### Quick install

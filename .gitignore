@@ -2,5 +2,6 @@
 chat_ids.csv
 chat_ids.csv.migrated
 *.db
+*.state
 venv/
 __pycache__/
